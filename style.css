@@ -16,7 +16,7 @@ body {
   color: var(--text);
   min-height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 24px 16px;
 }
@@ -29,6 +29,7 @@ body {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   max-width: calc(100vw - 32px);
   min-width: 0;
+  margin: auto 0;
 }
 
 h1 {
@@ -55,6 +56,7 @@ h1 {
 
 .difficulty {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   background: rgba(0, 0, 0, 0.3);
   padding: 4px;
@@ -104,6 +106,31 @@ h1 {
   margin-bottom: 12px;
 }
 
+.modes {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mode-btn {
+  flex: 1;
+  border: 1px solid transparent;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--muted);
+  font-size: 13px;
+  font-family: inherit;
+  padding: 9px 0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.mode-btn.active {
+  color: #fff;
+  border-color: var(--accent);
+  background: rgba(79, 140, 255, 0.18);
+}
+
 .stat {
   flex: 1;
   display: flex;
@@ -123,6 +150,7 @@ h1 {
 
 .board-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   padding-bottom: 4px;
 }
 
@@ -150,6 +178,10 @@ h1 {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px rgba(0, 0, 0, 0.25);
   transition: background 0.12s ease, transform 0.08s ease;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
 }
 
 .cell:hover:not(.revealed) { background: linear-gradient(150deg, #5c76a8, #405580); }
@@ -214,4 +246,11 @@ h1 {
   font-size: 12px;
   color: var(--muted);
   letter-spacing: 0.5px;
+}
+
+@media (max-width: 360px) {
+  .difficulty button { font-size: 12px; padding: 5px 8px; }
+  .restart { font-size: 12px; padding: 6px 10px; }
+  .mode-btn { font-size: 12px; }
+  .hint { font-size: 11px; }
 }

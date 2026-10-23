@@ -24,6 +24,18 @@
   let revealedCount = 0;
   let seconds = 0;
   let timerId = null;
+  let mode = 'reveal';
+  let pressTimer = null;
+  let lastLongPress = 0;
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  function pickCellSize(cfg) {
+    const gap = 3;
+    const available = Math.max(220, window.innerWidth - 88);
+    const fit = Math.floor((available - (cfg.cols - 1) * gap) / cfg.cols);
+    return Math.max(26, Math.min(cfg.cellSize, fit));
+  }
 
   function forEachNeighbor(r, c, fn) {
     for (let dr = -1; dr <= 1; dr++) {
@@ -60,9 +72,10 @@
       board.push(row);
     }
 
+    const cellSize = pickCellSize(cfg);
     boardEl.innerHTML = '';
-    boardEl.style.setProperty('--cell-size', cfg.cellSize + 'px');
-    boardEl.style.gridTemplateColumns = 'repeat(' + cols + ', ' + cfg.cellSize + 'px)';
+    boardEl.style.setProperty('--cell-size', cellSize + 'px');
+    boardEl.style.gridTemplateColumns = 'repeat(' + cols + ', ' + cellSize + 'px)';
 
     cells = [];
     for (let r = 0; r < rows; r++) {
@@ -74,6 +87,10 @@
         el.dataset.c = c;
         el.addEventListener('click', onLeftClick);
         el.addEventListener('contextmenu', onRightClick);
+        el.addEventListener('touchstart', onCellTouchStart);
+        el.addEventListener('touchmove', onCellTouchMove);
+        el.addEventListener('touchend', onCellTouchEnd);
+        el.addEventListener('touchcancel', onCellTouchEnd);
         boardEl.appendChild(el);
         rowEls.push(el);
       }
@@ -116,7 +133,47 @@
   }
   function onLeftClick(e) {
     if (gameState === 'won' || gameState === 'lost') return;
-    reveal(Number(e.currentTarget.dataset.r), Number(e.currentTarget.dataset.c));
+    if (Date.now() - lastLongPress < 500) return;
+    const r = Number(e.currentTarget.dataset.r);
+    const c = Number(e.currentTarget.dataset.c);
+    if (mode === 'flag') {
+      toggleFlag(r, c);
+    } else {
+      reveal(r, c);
+    }
+  }
+
+  function onCellTouchStart(e) {
+    const el = e.currentTarget;
+    const t = e.touches[0];
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(function () {
+      lastLongPress = Date.now();
+      const r = Number(el.dataset.r);
+      const c = Number(el.dataset.c);
+      if (mode === 'flag') {
+        reveal(r, c);
+      } else {
+        toggleFlag(r, c);
+      }
+      if (navigator.vibrate) {
+        try { navigator.vibrate(25); } catch (err) {}
+      }
+    }, 420);
+  }
+
+  function onCellTouchMove(e) {
+    const t = e.touches[0];
+    if (!t) return;
+    const dx = t.clientX - touchStartX;
+    const dy = t.clientY - touchStartY;
+    if (dx * dx + dy * dy > 100) clearTimeout(pressTimer);
+  }
+
+  function onCellTouchEnd() {
+    clearTimeout(pressTimer);
   }
 
   function reveal(r, c) {
@@ -171,6 +228,7 @@
   function onRightClick(e) {
     e.preventDefault();
     if (gameState === 'won' || gameState === 'lost') return;
+    if (Date.now() - lastLongPress < 1000) return;
     const r = Number(e.currentTarget.dataset.r);
     const c = Number(e.currentTarget.dataset.c);
     const cell = board[r][c];
@@ -252,6 +310,17 @@
   function updateMineCounter() {
     mineCountEl.textContent = mineTotal - flagsPlaced;
   }
+
+  const modeBtns = document.querySelectorAll('.mode-btn');
+
+  modeBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      mode = btn.dataset.mode;
+      modeBtns.forEach(function (b) {
+        b.classList.toggle('active', b === btn);
+      });
+    });
+  });
 
   restartBtn.addEventListener('click', function () {
     initGame(currentLevel);

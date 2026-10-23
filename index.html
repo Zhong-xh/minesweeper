@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>扫雷</title>
-<meta name="description" content="经典扫雷小游戏：初级 9×9、中级 16×16、高级 30×16，左键翻开、右键插旗，首次点击不会踩雷。">
+<meta name="description" content="经典扫雷小游戏：初级 9×9、中级 16×16、高级 30×16，轻点/左键翻开、长按/右键插旗，首次点击不会踩雷。">
 <meta name="theme-color" content="#141c2e">
 <meta name="author" content="Zhong-xh">
 
@@ -45,11 +45,15 @@
       <div class="stat"><span class="icon">💣</span><span id="mine-count">10</span></div>
       <div class="stat"><span class="icon">⏱</span><span id="timer">000</span></div>
     </div>
+    <div class="modes">
+      <button class="mode-btn active" data-mode="reveal">👆 翻开</button>
+      <button class="mode-btn" data-mode="flag">🚩 插旗</button>
+    </div>
     <div class="board-wrap">
       <div id="board" class="board"></div>
     </div>
     <div id="message" class="message"></div>
-    <p class="hint">左键翻开 · 右键插旗 · 首次点击不会踩雷</p>
+    <p class="hint">轻点翻开 · 长按插旗 · 中高级棋盘可左右滑动</p>
   </div>
 
   <script src="game.js"></script>
