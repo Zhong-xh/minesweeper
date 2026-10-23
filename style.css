@@ -106,31 +106,6 @@ h1 {
   margin-bottom: 12px;
 }
 
-.modes {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.mode-btn {
-  flex: 1;
-  border: 1px solid transparent;
-  background: rgba(0, 0, 0, 0.3);
-  color: var(--muted);
-  font-size: 13px;
-  font-family: inherit;
-  padding: 9px 0;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.mode-btn.active {
-  color: #fff;
-  border-color: var(--accent);
-  background: rgba(79, 140, 255, 0.18);
-}
-
 .stat {
   flex: 1;
   display: flex;
@@ -149,16 +124,19 @@ h1 {
 .stat .icon { font-size: 15px; opacity: 0.9; }
 
 .board-wrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 4px;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto;
+  overflow: hidden;
+  position: relative;
+  touch-action: none;
 }
 
 .board {
   display: grid;
   width: max-content;
-  margin: 0 auto;
-  gap: 3px;
+  transform-origin: 0 0;
+  will-change: transform;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -181,7 +159,7 @@ h1 {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  touch-action: manipulation;
+  touch-action: none;
 }
 
 .cell:hover:not(.revealed) { background: linear-gradient(150deg, #5c76a8, #405580); }
@@ -248,9 +226,18 @@ h1 {
   letter-spacing: 0.5px;
 }
 
-@media (max-width: 360px) {
-  .difficulty button { font-size: 12px; padding: 5px 8px; }
-  .restart { font-size: 12px; padding: 6px 10px; }
-  .mode-btn { font-size: 12px; }
+@media (max-width: 480px) {
+  body { padding: 12px 8px; }
+  .app { padding: 14px 10px 12px; max-width: calc(100vw - 16px); }
+
+  .toolbar { gap: 6px; flex-wrap: nowrap; }
+  .difficulty { flex-wrap: nowrap; gap: 2px; padding: 3px; }
+  .difficulty button { font-size: 11px; padding: 6px 7px; }
+  .restart { font-size: 11px; padding: 7px 8px; }
   .hint { font-size: 11px; }
+}
+
+@media (max-width: 340px) {
+  .difficulty button { font-size: 10px; padding: 5px 5px; }
+  .restart { font-size: 10px; padding: 6px 6px; }
 }

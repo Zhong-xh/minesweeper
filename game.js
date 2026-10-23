@@ -24,17 +24,52 @@
   let revealedCount = 0;
   let seconds = 0;
   let timerId = null;
-  let mode = 'reveal';
+
+  const wrapEl = boardEl.parentElement;
+
   let pressTimer = null;
   let lastLongPress = 0;
+  let suppressClickUntil = 0;
   let touchStartX = 0;
   let touchStartY = 0;
+  let lastX = 0;
+  let lastY = 0;
+  let singleTouchMoved = false;
+  let longPressCell = null;
+  let activeTouches = new Map();
+  let pinchStartDist = 1;
+  let pinchStartScale = 1;
+  let scale = 1;
+  let tx = 0;
+  let ty = 0;
 
   function pickCellSize(cfg) {
-    const gap = 3;
-    const available = Math.max(220, window.innerWidth - 88);
+    const gap = cfg.cols >= 20 ? 2 : 3;
+    const mobile = window.innerWidth <= 480;
+    const paddingTotal = mobile ? 44 : 88;
+    const available = Math.max(160, window.innerWidth - paddingTotal);
     const fit = Math.floor((available - (cfg.cols - 1) * gap) / cfg.cols);
-    return Math.max(26, Math.min(cfg.cellSize, fit));
+    return { size: Math.max(6, Math.min(cfg.cellSize, fit)), gap: gap };
+  }
+
+  function applyTransform() {
+    boardEl.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
+  }
+
+  function clampPan() {
+    const bw = boardEl.offsetWidth;
+    const bh = boardEl.offsetHeight;
+    const minX = bw * (1 - scale);
+    const minY = bh * (1 - scale);
+    if (tx > 0) tx = 0;
+    if (tx < minX) tx = minX;
+    if (ty > 0) ty = 0;
+    if (ty < minY) ty = minY;
+    if (scale <= 1.001) {
+      tx = 0;
+      ty = 0;
+    }
+    applyTransform();
   }
 
   function forEachNeighbor(r, c, fn) {
@@ -72,10 +107,15 @@
       board.push(row);
     }
 
-    const cellSize = pickCellSize(cfg);
+    const picked = pickCellSize(cfg);
     boardEl.innerHTML = '';
-    boardEl.style.setProperty('--cell-size', cellSize + 'px');
-    boardEl.style.gridTemplateColumns = 'repeat(' + cols + ', ' + cellSize + 'px)';
+    boardEl.style.setProperty('--cell-size', picked.size + 'px');
+    boardEl.style.gridTemplateColumns = 'repeat(' + cols + ', ' + picked.size + 'px)';
+    boardEl.style.gap = picked.gap + 'px';
+    scale = 1;
+    tx = 0;
+    ty = 0;
+    applyTransform();
 
     cells = [];
     for (let r = 0; r < rows; r++) {
@@ -87,10 +127,6 @@
         el.dataset.c = c;
         el.addEventListener('click', onLeftClick);
         el.addEventListener('contextmenu', onRightClick);
-        el.addEventListener('touchstart', onCellTouchStart);
-        el.addEventListener('touchmove', onCellTouchMove);
-        el.addEventListener('touchend', onCellTouchEnd);
-        el.addEventListener('touchcancel', onCellTouchEnd);
         boardEl.appendChild(el);
         rowEls.push(el);
       }
@@ -134,46 +170,128 @@
   function onLeftClick(e) {
     if (gameState === 'won' || gameState === 'lost') return;
     if (Date.now() - lastLongPress < 500) return;
-    const r = Number(e.currentTarget.dataset.r);
-    const c = Number(e.currentTarget.dataset.c);
-    if (mode === 'flag') {
-      toggleFlag(r, c);
-    } else {
-      reveal(r, c);
+    if (Date.now() < suppressClickUntil) return;
+    reveal(Number(e.currentTarget.dataset.r), Number(e.currentTarget.dataset.c));
+  }
+
+  function getCellFromEvent(e) {
+    const target = e.target;
+    if (!target || typeof target.closest !== 'function') return null;
+    return target.closest('.cell');
+  }
+
+  function onWrapTouchStart(e) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
+    }
+
+    if (activeTouches.size === 1) {
+      const t = e.changedTouches[0];
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+      lastX = t.clientX;
+      lastY = t.clientY;
+      singleTouchMoved = false;
+      longPressCell = getCellFromEvent(e);
+
+      clearTimeout(pressTimer);
+      if (longPressCell && !longPressCell.classList.contains('revealed')) {
+        pressTimer = setTimeout(function () {
+          lastLongPress = Date.now();
+          suppressClickUntil = Date.now() + 450;
+          toggleFlag(Number(longPressCell.dataset.r), Number(longPressCell.dataset.c));
+          if (navigator.vibrate) {
+            try { navigator.vibrate(25); } catch (err) {}
+          }
+        }, 420);
+      }
+    } else if (activeTouches.size === 2) {
+      clearTimeout(pressTimer);
+      longPressCell = null;
+      singleTouchMoved = true;
+      const pts = Array.from(activeTouches.values());
+      const gx = pts[0].x - pts[1].x;
+      const gy = pts[0].y - pts[1].y;
+      pinchStartDist = Math.sqrt(gx * gx + gy * gy) || 1;
+      pinchStartScale = scale;
+      suppressClickUntil = Date.now() + 450;
     }
   }
 
-  function onCellTouchStart(e) {
-    const el = e.currentTarget;
-    const t = e.touches[0];
-    touchStartX = t.clientX;
-    touchStartY = t.clientY;
-    clearTimeout(pressTimer);
-    pressTimer = setTimeout(function () {
-      lastLongPress = Date.now();
-      const r = Number(el.dataset.r);
-      const c = Number(el.dataset.c);
-      if (mode === 'flag') {
-        reveal(r, c);
-      } else {
-        toggleFlag(r, c);
+  function onWrapTouchMove(e) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (activeTouches.has(t.identifier)) {
+        activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
       }
-      if (navigator.vibrate) {
-        try { navigator.vibrate(25); } catch (err) {}
-      }
-    }, 420);
-  }
+    }
 
-  function onCellTouchMove(e) {
+    if (activeTouches.size >= 2) {
+      e.preventDefault();
+      clearTimeout(pressTimer);
+      longPressCell = null;
+      singleTouchMoved = true;
+
+      const pts = Array.from(activeTouches.values());
+      const gx = pts[0].x - pts[1].x;
+      const gy = pts[0].y - pts[1].y;
+      const dist = Math.sqrt(gx * gx + gy * gy) || 1;
+
+      let nextScale = pinchStartScale * (dist / pinchStartDist);
+      if (nextScale < 1) nextScale = 1;
+      if (nextScale > 3) nextScale = 3;
+
+      const rect = wrapEl.getBoundingClientRect();
+      const midX = (pts[0].x + pts[1].x) / 2 - rect.left;
+      const midY = (pts[0].y + pts[1].y) / 2 - rect.top;
+      const ratio = nextScale / scale;
+
+      tx = midX - (midX - tx) * ratio;
+      ty = midY - (midY - ty) * ratio;
+      scale = nextScale;
+
+      clampPan();
+      suppressClickUntil = Date.now() + 450;
+      return;
+    }
+
     const t = e.touches[0];
     if (!t) return;
-    const dx = t.clientX - touchStartX;
-    const dy = t.clientY - touchStartY;
-    if (dx * dx + dy * dy > 100) clearTimeout(pressTimer);
+
+    if (!singleTouchMoved) {
+      const dx = t.clientX - touchStartX;
+      const dy = t.clientY - touchStartY;
+      if (dx * dx + dy * dy > 225) {
+        singleTouchMoved = true;
+        clearTimeout(pressTimer);
+        longPressCell = null;
+        lastX = t.clientX;
+        lastY = t.clientY;
+      }
+    } else if (scale > 1) {
+      e.preventDefault();
+      tx += t.clientX - lastX;
+      ty += t.clientY - lastY;
+      lastX = t.clientX;
+      lastY = t.clientY;
+      clampPan();
+      suppressClickUntil = Date.now() + 450;
+    }
   }
 
-  function onCellTouchEnd() {
+  function onWrapTouchEnd(e) {
     clearTimeout(pressTimer);
+    longPressCell = null;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      activeTouches.delete(e.changedTouches[i].identifier);
+    }
+    if (activeTouches.size === 0) {
+      singleTouchMoved = false;
+    } else if (activeTouches.size === 1 && e.touches.length === 1) {
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+    }
   }
 
   function reveal(r, c) {
@@ -311,17 +429,6 @@
     mineCountEl.textContent = mineTotal - flagsPlaced;
   }
 
-  const modeBtns = document.querySelectorAll('.mode-btn');
-
-  modeBtns.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      mode = btn.dataset.mode;
-      modeBtns.forEach(function (b) {
-        b.classList.toggle('active', b === btn);
-      });
-    });
-  });
-
   restartBtn.addEventListener('click', function () {
     initGame(currentLevel);
   });
@@ -333,6 +440,11 @@
       initGame(btn.dataset.level);
     });
   });
+
+  wrapEl.addEventListener('touchstart', onWrapTouchStart, { passive: false });
+  wrapEl.addEventListener('touchmove', onWrapTouchMove, { passive: false });
+  wrapEl.addEventListener('touchend', onWrapTouchEnd);
+  wrapEl.addEventListener('touchcancel', onWrapTouchEnd);
 
   initGame('beginner');
 })();
