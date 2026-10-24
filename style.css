@@ -8,28 +8,28 @@
   --accent: #4f8cff;
 }
 
-html, body { height: 100%; }
+html, body { height: 100%; overflow: hidden; }
 
 body {
   font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   background: radial-gradient(1200px 600px at 50% -10%, #2b3d63 0%, #141c2e 55%, #0d1322 100%);
   color: var(--text);
-  min-height: 100vh;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
   padding: 24px 16px;
 }
 
 .app {
+  display: flex;
+  flex-direction: column;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 20px 22px 18px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   max-width: calc(100vw - 32px);
   min-width: 0;
-  margin: auto 0;
 }
 
 h1 {
@@ -123,10 +123,18 @@ h1 {
 
 .stat .icon { font-size: 15px; opacity: 0.9; }
 
+.board-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
 .board-wrap {
   width: max-content;
   max-width: 100%;
-  margin: 0 auto;
   overflow: hidden;
   position: relative;
   touch-action: none;
@@ -227,14 +235,17 @@ h1 {
 }
 
 @media (max-width: 480px) {
-  body { padding: 12px 8px; }
-  .app { padding: 14px 10px 12px; max-width: calc(100vw - 16px); }
+  body { padding: 10px 8px; }
+  .app { padding: 12px 10px 10px; max-width: calc(100vw - 16px); }
 
-  .toolbar { gap: 6px; flex-wrap: nowrap; }
+  h1 { font-size: 18px; margin-bottom: 10px; }
+  .toolbar { gap: 6px; flex-wrap: nowrap; margin-bottom: 8px; }
   .difficulty { flex-wrap: nowrap; gap: 2px; padding: 3px; }
   .difficulty button { font-size: 11px; padding: 6px 7px; }
   .restart { font-size: 11px; padding: 7px 8px; }
-  .hint { font-size: 11px; }
+  .status { margin-bottom: 8px; }
+  .message { margin-top: 8px; min-height: 18px; }
+  .hint { font-size: 11px; margin-top: 4px; }
 }
 
 @media (max-width: 340px) {

@@ -26,6 +26,7 @@
   let timerId = null;
 
   const wrapEl = boardEl.parentElement;
+  const areaEl = wrapEl.parentElement;
 
   let pressTimer = null;
   let lastLongPress = 0;
@@ -45,11 +46,11 @@
 
   function pickCellSize(cfg) {
     const gap = cfg.cols >= 20 ? 2 : 3;
-    const mobile = window.innerWidth <= 480;
-    const paddingTotal = mobile ? 44 : 88;
-    const available = Math.max(160, window.innerWidth - paddingTotal);
-    const fit = Math.floor((available - (cfg.cols - 1) * gap) / cfg.cols);
-    return { size: Math.max(6, Math.min(cfg.cellSize, fit)), gap: gap };
+    const availW = Math.max(120, areaEl ? areaEl.clientWidth : window.innerWidth - 88);
+    const availH = Math.max(120, areaEl ? areaEl.clientHeight : 400);
+    const fitW = Math.floor((availW - (cfg.cols - 1) * gap) / cfg.cols);
+    const fitH = Math.floor((availH - (cfg.rows - 1) * gap) / cfg.rows);
+    return { size: Math.max(6, Math.min(cfg.cellSize, fitW, fitH)), gap: gap };
   }
 
   function applyTransform() {
@@ -343,20 +344,25 @@
     }
   }
 
-  function onRightClick(e) {
-    e.preventDefault();
+  function toggleFlag(r, c) {
     if (gameState === 'won' || gameState === 'lost') return;
-    if (Date.now() - lastLongPress < 1000) return;
-    const r = Number(e.currentTarget.dataset.r);
-    const c = Number(e.currentTarget.dataset.c);
     const cell = board[r][c];
     if (cell.revealed) return;
+    if (!cell.flagged && flagsPlaced >= mineTotal) return;
     cell.flagged = !cell.flagged;
     flagsPlaced += cell.flagged ? 1 : -1;
     const el = cells[r][c];
     el.classList.toggle('flagged', cell.flagged);
     el.textContent = cell.flagged ? '🚩' : '';
     updateMineCounter();
+  }
+
+  function onRightClick(e) {
+    e.preventDefault();
+    if (gameState === 'won' || gameState === 'lost') return;
+    if (activeTouches.size > 0) return;
+    if (Date.now() - lastLongPress < 1000) return;
+    toggleFlag(Number(e.currentTarget.dataset.r), Number(e.currentTarget.dataset.c));
   }
 
   function loseGame(hitR, hitC) {
@@ -426,7 +432,7 @@
   }
 
   function updateMineCounter() {
-    mineCountEl.textContent = mineTotal - flagsPlaced;
+    mineCountEl.textContent = flagsPlaced + ' / ' + mineTotal;
   }
 
   restartBtn.addEventListener('click', function () {
