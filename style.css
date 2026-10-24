@@ -143,20 +143,18 @@ h1 {
 .board {
   display: grid;
   width: max-content;
-  transform-origin: 0 0;
-  will-change: transform;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .cell {
-  width: var(--cell-size);
-  height: var(--cell-size);
+  width: var(--cell-w);
+  height: var(--cell-h);
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 5px;
-  font-size: calc(var(--cell-size) * 0.5);
+  font-size: calc(min(var(--cell-w), var(--cell-h)) * 0.5);
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
@@ -181,7 +179,7 @@ h1 {
 
 .cell.revealed:active { transform: none; }
 
-.cell.flagged { font-size: calc(var(--cell-size) * 0.52); }
+.cell.flagged { font-size: calc(min(var(--cell-w), var(--cell-h)) * 0.52); }
 
 .cell.n1 { color: #74a9ff; }
 .cell.n2 { color: #5fe08f; }
@@ -194,7 +192,7 @@ h1 {
 
 .cell.mine {
   background: rgba(255, 92, 92, 0.22);
-  font-size: calc(var(--cell-size) * 0.5);
+  font-size: calc(min(var(--cell-w), var(--cell-h)) * 0.5);
 }
 
 .cell.exploded {
@@ -205,7 +203,7 @@ h1 {
 
 .cell.wrong {
   background: rgba(255, 92, 92, 0.16);
-  font-size: calc(var(--cell-size) * 0.5);
+  font-size: calc(min(var(--cell-w), var(--cell-h)) * 0.5);
 }
 
 @keyframes shake {

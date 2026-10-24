@@ -36,13 +36,14 @@
     <div class="toolbar">
       <div class="difficulty">
         <button data-level="beginner" class="active">初级 9×9</button>
-        <button data-level="intermediate">中级 16×16</button>
-        <button data-level="expert">高级 30×16</button>
+        <button data-level="intermediate">中级 12×12</button>
+        <button data-level="expert">高级 16×16</button>
       </div>
       <button id="restart" class="restart">🔄 重新开始</button>
     </div>
     <div class="status">
-      <div class="stat"><span class="icon">🚩</span><span id="mine-count">0 / 10</span></div>
+      <div class="stat"><span class="icon">💣</span><span id="mine-total">10</span></div>
+      <div class="stat"><span class="icon">🚩</span><span id="flag-count">0</span></div>
       <div class="stat"><span class="icon">⏱</span><span id="timer">000</span></div>
     </div>
     <div class="board-area">
@@ -51,7 +52,7 @@
       </div>
     </div>
     <div id="message" class="message"></div>
-    <p class="hint">轻点翻开 · 手机长按插旗 · 电脑右键插旗 · 双指缩放</p>
+    <p class="hint">轻点翻开 · 手机长按插旗 · 电脑右键插旗</p>
   </div>
 
   <script src="game.js"></script>

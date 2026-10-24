@@ -3,12 +3,13 @@
 
   const DIFFICULTIES = {
     beginner:     { rows: 9,  cols: 9,  mines: 10, cellSize: 42 },
-    intermediate: { rows: 16, cols: 16, mines: 40, cellSize: 30 },
-    expert:       { rows: 16, cols: 30, mines: 99, cellSize: 26 }
+    intermediate: { rows: 12, cols: 12, mines: 20, cellSize: 36 },
+    expert:       { rows: 16, cols: 16, mines: 40, cellSize: 30 }
   };
 
   const boardEl     = document.getElementById('board');
-  const mineCountEl = document.getElementById('mine-count');
+  const mineTotalEl = document.getElementById('mine-total');
+  const flagCountEl = document.getElementById('flag-count');
   const timerEl     = document.getElementById('timer');
   const messageEl   = document.getElementById('message');
   const restartBtn  = document.getElementById('restart');
@@ -33,44 +34,17 @@
   let suppressClickUntil = 0;
   let touchStartX = 0;
   let touchStartY = 0;
-  let lastX = 0;
-  let lastY = 0;
   let singleTouchMoved = false;
   let longPressCell = null;
-  let activeTouches = new Map();
-  let pinchStartDist = 1;
-  let pinchStartScale = 1;
-  let scale = 1;
-  let tx = 0;
-  let ty = 0;
+  let touchActive = false;
 
   function pickCellSize(cfg) {
-    const gap = cfg.cols >= 20 ? 2 : 3;
+    const gap = 3;
     const availW = Math.max(120, areaEl ? areaEl.clientWidth : window.innerWidth - 88);
     const availH = Math.max(120, areaEl ? areaEl.clientHeight : 400);
     const fitW = Math.floor((availW - (cfg.cols - 1) * gap) / cfg.cols);
     const fitH = Math.floor((availH - (cfg.rows - 1) * gap) / cfg.rows);
-    return { size: Math.max(6, Math.min(cfg.cellSize, fitW, fitH)), gap: gap };
-  }
-
-  function applyTransform() {
-    boardEl.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
-  }
-
-  function clampPan() {
-    const bw = boardEl.offsetWidth;
-    const bh = boardEl.offsetHeight;
-    const minX = bw * (1 - scale);
-    const minY = bh * (1 - scale);
-    if (tx > 0) tx = 0;
-    if (tx < minX) tx = minX;
-    if (ty > 0) ty = 0;
-    if (ty < minY) ty = minY;
-    if (scale <= 1.001) {
-      tx = 0;
-      ty = 0;
-    }
-    applyTransform();
+    return { size: Math.max(8, Math.min(fitW, fitH)), gap: gap };
   }
 
   function forEachNeighbor(r, c, fn) {
@@ -97,7 +71,7 @@
     flagsPlaced = 0;
     revealedCount = 0;
     updateTimer();
-    updateMineCounter();
+    updateCounters();
 
     board = [];
     for (let r = 0; r < rows; r++) {
@@ -110,13 +84,11 @@
 
     const picked = pickCellSize(cfg);
     boardEl.innerHTML = '';
-    boardEl.style.setProperty('--cell-size', picked.size + 'px');
+    boardEl.style.setProperty('--cell-w', picked.size + 'px');
+    boardEl.style.setProperty('--cell-h', picked.size + 'px');
     boardEl.style.gridTemplateColumns = 'repeat(' + cols + ', ' + picked.size + 'px)';
+    boardEl.style.gridAutoRows = picked.size + 'px';
     boardEl.style.gap = picked.gap + 'px';
-    scale = 1;
-    tx = 0;
-    ty = 0;
-    applyTransform();
 
     cells = [];
     for (let r = 0; r < rows; r++) {
@@ -182,116 +154,46 @@
   }
 
   function onWrapTouchStart(e) {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const t = e.changedTouches[i];
-      activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
-    }
+    const t = e.changedTouches[0];
+    if (!t) return;
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    singleTouchMoved = false;
+    touchActive = true;
+    longPressCell = getCellFromEvent(e);
 
-    if (activeTouches.size === 1) {
-      const t = e.changedTouches[0];
-      touchStartX = t.clientX;
-      touchStartY = t.clientY;
-      lastX = t.clientX;
-      lastY = t.clientY;
-      singleTouchMoved = false;
-      longPressCell = getCellFromEvent(e);
-
-      clearTimeout(pressTimer);
-      if (longPressCell && !longPressCell.classList.contains('revealed')) {
-        pressTimer = setTimeout(function () {
-          lastLongPress = Date.now();
-          suppressClickUntil = Date.now() + 450;
-          toggleFlag(Number(longPressCell.dataset.r), Number(longPressCell.dataset.c));
-          if (navigator.vibrate) {
-            try { navigator.vibrate(25); } catch (err) {}
-          }
-        }, 420);
-      }
-    } else if (activeTouches.size === 2) {
-      clearTimeout(pressTimer);
-      longPressCell = null;
-      singleTouchMoved = true;
-      const pts = Array.from(activeTouches.values());
-      const gx = pts[0].x - pts[1].x;
-      const gy = pts[0].y - pts[1].y;
-      pinchStartDist = Math.sqrt(gx * gx + gy * gy) || 1;
-      pinchStartScale = scale;
-      suppressClickUntil = Date.now() + 450;
+    clearTimeout(pressTimer);
+    if (longPressCell && !longPressCell.classList.contains('revealed')) {
+      pressTimer = setTimeout(function () {
+        lastLongPress = Date.now();
+        suppressClickUntil = Date.now() + 450;
+        toggleFlag(Number(longPressCell.dataset.r), Number(longPressCell.dataset.c));
+        if (navigator.vibrate) {
+          try { navigator.vibrate(25); } catch (err) {}
+        }
+      }, 420);
     }
   }
 
   function onWrapTouchMove(e) {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const t = e.changedTouches[i];
-      if (activeTouches.has(t.identifier)) {
-        activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
-      }
-    }
-
-    if (activeTouches.size >= 2) {
-      e.preventDefault();
-      clearTimeout(pressTimer);
-      longPressCell = null;
-      singleTouchMoved = true;
-
-      const pts = Array.from(activeTouches.values());
-      const gx = pts[0].x - pts[1].x;
-      const gy = pts[0].y - pts[1].y;
-      const dist = Math.sqrt(gx * gx + gy * gy) || 1;
-
-      let nextScale = pinchStartScale * (dist / pinchStartDist);
-      if (nextScale < 1) nextScale = 1;
-      if (nextScale > 3) nextScale = 3;
-
-      const rect = wrapEl.getBoundingClientRect();
-      const midX = (pts[0].x + pts[1].x) / 2 - rect.left;
-      const midY = (pts[0].y + pts[1].y) / 2 - rect.top;
-      const ratio = nextScale / scale;
-
-      tx = midX - (midX - tx) * ratio;
-      ty = midY - (midY - ty) * ratio;
-      scale = nextScale;
-
-      clampPan();
-      suppressClickUntil = Date.now() + 450;
-      return;
-    }
-
+    if (singleTouchMoved) return;
     const t = e.touches[0];
     if (!t) return;
-
-    if (!singleTouchMoved) {
-      const dx = t.clientX - touchStartX;
-      const dy = t.clientY - touchStartY;
-      if (dx * dx + dy * dy > 225) {
-        singleTouchMoved = true;
-        clearTimeout(pressTimer);
-        longPressCell = null;
-        lastX = t.clientX;
-        lastY = t.clientY;
-      }
-    } else if (scale > 1) {
-      e.preventDefault();
-      tx += t.clientX - lastX;
-      ty += t.clientY - lastY;
-      lastX = t.clientX;
-      lastY = t.clientY;
-      clampPan();
-      suppressClickUntil = Date.now() + 450;
+    const dx = t.clientX - touchStartX;
+    const dy = t.clientY - touchStartY;
+    if (dx * dx + dy * dy > 225) {
+      singleTouchMoved = true;
+      clearTimeout(pressTimer);
+      longPressCell = null;
     }
   }
 
   function onWrapTouchEnd(e) {
     clearTimeout(pressTimer);
     longPressCell = null;
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      activeTouches.delete(e.changedTouches[i].identifier);
-    }
-    if (activeTouches.size === 0) {
-      singleTouchMoved = false;
-    } else if (activeTouches.size === 1 && e.touches.length === 1) {
-      lastX = e.touches[0].clientX;
-      lastY = e.touches[0].clientY;
+    singleTouchMoved = false;
+    if (!e.touches || e.touches.length === 0) {
+      touchActive = false;
     }
   }
 
@@ -354,13 +256,13 @@
     const el = cells[r][c];
     el.classList.toggle('flagged', cell.flagged);
     el.textContent = cell.flagged ? '🚩' : '';
-    updateMineCounter();
+    updateCounters();
   }
 
   function onRightClick(e) {
     e.preventDefault();
     if (gameState === 'won' || gameState === 'lost') return;
-    if (activeTouches.size > 0) return;
+    if (touchActive) return;
     if (Date.now() - lastLongPress < 1000) return;
     toggleFlag(Number(e.currentTarget.dataset.r), Number(e.currentTarget.dataset.c));
   }
@@ -406,7 +308,7 @@
       }
     }
     flagsPlaced = mineTotal;
-    updateMineCounter();
+    updateCounters();
     messageEl.textContent = '🎉 扫雷成功！用时 ' + seconds + ' 秒';
     messageEl.className = 'message won';
     restartBtn.textContent = '🔄 再来一局';
@@ -431,8 +333,9 @@
     timerEl.textContent = String(seconds).padStart(3, '0');
   }
 
-  function updateMineCounter() {
-    mineCountEl.textContent = flagsPlaced + ' / ' + mineTotal;
+  function updateCounters() {
+    if (mineTotalEl) mineTotalEl.textContent = mineTotal;
+    if (flagCountEl) flagCountEl.textContent = flagsPlaced;
   }
 
   restartBtn.addEventListener('click', function () {
